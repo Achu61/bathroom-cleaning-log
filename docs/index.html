@@ -109,11 +109,11 @@ ${tab==="clean"?cleanView():tab==="status"?statusView():tab==="logs"?logsView():
 document.addEventListener("submit",async e=>{
   e.preventDefault();const f=fd(e.target);err="";msg="";
   try{
-    if(e.target.id==="lf"){
+    if(e.target.getAttribute("id")==="lf"){
       const r=needsSetup?await rpc("app_setup",{i:f.id,n:f.name||"",p:f.pw}):await rpc("app_login",{i:f.id,p:f.pw});
       token=r.token;ls.set(token);me={id:r.id,name:r.name,role:r.role};needsSetup=false;await load();
     }
-    if(e.target.id==="uf"){await rpc("app_add_user",{t:token,i:f.id,n:f.name,p:f.pw,r:f.role});msg="User added.";users=await rpc("app_users",{t:token})}
+    if(e.target.getAttribute("id")==="uf"){await rpc("app_add_user",{t:token,i:f.id,n:f.name,p:f.pw,r:f.role});msg="User added.";users=await rpc("app_users",{t:token})}
   }catch(x){err=x.message}
   render();
 });
@@ -134,7 +134,7 @@ document.addEventListener("click",async e=>{
   }catch(x){err=x.message;render()}
 });
 document.addEventListener("change",e=>{
-  if(e.target.id==="pick"&&e.target.value){scanned=e.target.value;msg="";render()}
+  if(e.target.getAttribute("id")==="pick"&&e.target.value){scanned=e.target.value;msg="";render()}
   if(e.target.dataset.f){filt[e.target.dataset.f]=e.target.value;render()}
 });
 boot().catch(x=>{app.innerHTML='<div class="card"><h2>Cannot start</h2><p>'+esc(x.message)+'</p></div>'});
