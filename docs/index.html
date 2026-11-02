@@ -32,6 +32,7 @@ button.p{background:var(--ac);border-color:var(--ac);color:#fff}
 <body>
 <main id="app"><p class="mu">Loading…</p></main>
 <script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 let BATH=[],bById={},me=null,token="",needsSetup=false,users=[],logs=[],last=[],tab="clean",msg="",err="",qrBase="",filt={d:"",b:"",u:"",s:""};
@@ -86,7 +87,7 @@ function logsView(){const rows=filtered();
 <div><label>Bathroom</label><select data-f="b"><option value="">All</option>${BATH.map(b=>`<option value="${b.id}" ${filt.b===b.id?"selected":""}>${esc(b.name)} (${b.id})</option>`).join("")}</select></div>
 <div><label>Staff</label><select data-f="u"><option value="">All</option>${users.map(u=>`<option value="${esc(u.id)}" ${filt.u===u.id?"selected":""}>${esc(u.name)}</option>`).join("")}</select></div>
 <div><label>Status</label><select data-f="s"><option value="">All</option><option ${filt.s==="cleaned"?"selected":""}>cleaned</option><option ${filt.s==="not cleaned"?"selected":""}>not cleaned</option></select></div></div>
-<p><button data-a="csv">Download CSV (${rows.length})</button></p><div class="sc"><table><tr><th>Date &amp; time</th><th>Bathroom</th><th>Status</th><th>Staff</th><th>Remark</th></tr>
+<p><button data-a="xlsx">Download Excel (${rows.length})</button></p><div class="sc"><table><tr><th>Date &amp; time</th><th>Bathroom</th><th>Status</th><th>Staff</th><th>Remark</th></tr>
 ${rows.slice(0,300).map(l=>`<tr><td>${fmt(l.ts)}</td><td>${esc(l.bname)} <span class="mu">${l.bid}</span></td><td><span class="tag ${l.status==="cleaned"?"y":"n"}">${l.status}</span></td><td>${esc(l.uname)} <span class="mu">${esc(l.uid)}</span></td><td>${esc(l.note)}</td></tr>`).join("")}</table></div></div>`}
 function staffView(){return `<div class="card"><h2>Add staff</h2><form id="uf"><div class="row"><div><label>Name</label><input name="name"></div><div><label>User ID</label><input name="id" autocapitalize="none" required></div><div><label>Password</label><input name="pw" required></div><div><label>Role</label><select name="role"><option value="cleaner">Cleaner</option><option value="admin">Admin</option></select></div></div>
 <div class="err">${esc(err)}</div><p class="okm">${esc(msg)}</p><button class="p" type="submit">Add user</button></form></div>
@@ -124,9 +125,14 @@ document.addEventListener("click",async e=>{
     if(act==="out"){try{await rpc("app_logout",{t:token})}catch(x){}token="";ls.set("");me=null;tab="clean";render()}
     if(act==="rec"){const r=await rpc("app_log",{t:token,b:scanned,s:a.dataset.s,n:($("#note")||{}).value||""});
       msg=(a.dataset.s==="cleaned"?"Saved: CLEANED – ":"Saved: NOT cleaned – ")+r.bname+" at "+fmt(r.ts);scanned="";history.replaceState(null,"",location.pathname+location.search);await load();render()}
-    if(act==="csv"){const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-      const lines=[["Date","Time","Block","Bathroom ID","Bathroom","Status","Staff ID","Staff name","Note"].map(q).join(",")].concat(filtered().map(r=>{const d=new Date(r.ts);return [d.toLocaleDateString(),d.toLocaleTimeString(),r.blk,r.bid,r.bname,r.status,r.uid,r.uname,r.note].map(q).join(",")}));
-      const u=URL.createObjectURL(new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv"}));const l=document.createElement("a");l.href=u;l.download="cleaning-log.csv";l.click();URL.revokeObjectURL(u)}
+    if(act==="xlsx"){
+      if(typeof XLSX==="undefined")throw new Error("Excel library could not load. Check the internet connection and try again.");
+      const H=["Date","Time","Block","Bathroom ID","Bathroom","Status","Staff ID","Staff name","Remark"];
+      const rows=filtered().map(r=>{const d=new Date(r.ts);return {"Date":d.toLocaleDateString("en-GB"),"Time":d.toLocaleTimeString("en-GB"),"Block":r.blk,"Bathroom ID":r.bid,"Bathroom":r.bname,"Status":r.status,"Staff ID":r.uid,"Staff name":r.uname,"Remark":r.note||""}});
+      const ws=XLSX.utils.json_to_sheet(rows,{header:H});ws["!cols"]=[{wch:12},{wch:10},{wch:11},{wch:11},{wch:30},{wch:12},{wch:12},{wch:22},{wch:30}];
+      const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Cleaning log");
+      XLSX.writeFile(wb,"cleaning-log-"+new Date().toLocaleDateString("en-CA")+".xlsx");
+    }
     if(act==="print")window.print();
     if(act==="qrgo"){qrBase=$("#qb").value.trim();drawQr()}
     if(act==="pw"){const p=prompt("New password for "+a.dataset.id+" (6+ characters):");if(p){await rpc("app_set_pw",{t:token,i:a.dataset.id,p});msg="Password changed.";render()}}
